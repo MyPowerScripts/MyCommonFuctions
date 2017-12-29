@@ -19,7 +19,7 @@ function Set-MyClipBoard()
     .EXAMPLE
       Set-MyClipBoard -MyData $MyData -Title "This is My Title" -Columns ([Ordered@{"Property1" = "Left"; "Property2" = "Right"; "Property3" = "Center"})
     .NOTES
-      Original Function By ken.sweet
+      Original Function By Ken Sweet
     .LINK
   #>
   [CmdletBinding(DefaultParameterSetName = "NoTitle")]
@@ -71,7 +71,7 @@ function Set-MyClipBoard()
       {
         [Void]$HTMLStringBuilder.Append("<td style='text-align:$($Columns[$Key])'>&nbsp;$($Item.$Key)&nbsp;</td>")
       }
-      [Void]$HTMLStringBuilder.Append("&nbsp;</td></tr>")
+      [Void]$HTMLStringBuilder.Append("</tr>")
     }
     [Void]$HTMLStringBuilder.Append("</table><br><br>")
   }
