@@ -20,6 +20,8 @@ $ErrorActionPreference = "Stop"
 #Explicitly import the module for testing
 Import-Module -Name "$PWD\MyCommonFunctions.psm1" | Out-Null
 
+Get-Command -Module MyCommonFunctions
+
 $VerbosePreference = "SilentlyContinue"
 
 #$ProcessList = Get-Process -Name "Chrome"

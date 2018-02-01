@@ -25,10 +25,10 @@
 	GUID = '28e0d274-775d-4dce-85a6-f4a0f9357a03'
 	
 	# Author of this module
-	Author = 'Thanatos'
+	Author = 'Ken Sweet'
 	
 	# Company or vendor of this module
-	CompanyName = ''
+	CompanyName = 'My Power Scripts'
 	
 	# Copyright statement for this module
 	Copyright = '(c) 2017. All rights reserved.'
