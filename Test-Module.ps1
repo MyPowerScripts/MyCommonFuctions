@@ -27,4 +27,20 @@ $VerbosePreference = "SilentlyContinue"
 #$ProcessList = Get-Process -Name "Chrome"
 #CopyTo-ClipBoard -MyData $ProcessList -Title "My List of Processes" -Columns ([Ordered]@{ "Name" = "Left"; "ID" = "Right"; "StartTime" = "Center" }) -Verbose
 
-$Host.EnterNestedPrompt()
+Set-MyISScriptData -Name "A1" -Value 1
+Set-MyISScriptData -Name "A2" -Value ( ,"One")
+Set-MyISScriptData -MultiValue @{ "B1" = 2; "C1" = 3 }
+Set-MyISScriptData -MultiValue @{ "B2" = "Two"; "C2" = "Three" }
+Set-MyISScriptData -Name "D1" -Value @(1, 2, 3)
+Set-MyISScriptData -Name "D2" -Value @("One", "Two", "Three")
+
+Get-MyISScriptData -Name "A1", "B1", "C2", "D2", "D1"
+
+Remove-MyISScriptData
+Remove-MyISScriptData
+#Remove-MyISScriptData
+
+
+#$Host.EnterNestedPrompt()
+
+Remove-Module -Name "MyCommonFunctions"
