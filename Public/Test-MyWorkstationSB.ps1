@@ -114,6 +114,21 @@ function Test-MyWorkstationSB()
       }
     }
     #endregion
+    
+    # Default Common Get-WmiObject Options
+    if ($PSBoundParameters.ContainsKey("Credential"))
+    {
+      $Params = @{
+        "ComputerName" = $Null;
+        "Credential" = $Credential
+      }
+    }
+    else
+    {
+      $Params = @{
+        "ComputerName" = $Null
+      }
+    }
   }
   Process
   {
@@ -128,6 +143,7 @@ function Test-MyWorkstationSB()
       #region ******** Custom Return Object $VerifyObject ********
       $VerifyObject = [PSCustomObject]@{
         "ComputerName" = $Computer.ToUpper();
+        "FQDN" = $Computer.ToUpper();
         "Found" = $False;
         "UserName" = "";
         "Domain" = "";
@@ -162,20 +178,7 @@ function Test-MyWorkstationSB()
             # I think this is Faster than using Test-Connection
             if (((New-Object -TypeName System.Net.NetworkInformation.Ping).Send($IPAddress)).Status -eq [System.Net.NetworkInformation.IPStatus]::Success)
             {
-              # Default Common Get-WmiObject Options
-              if ($PSBoundParameters.ContainsKey("Credential"))
-              {
-                $Params = @{
-                  "ComputerName" = $IPAddress;
-                  "Credential" = $Credential
-                }
-              }
-              else
-              {
-                $Params = @{
-                  "ComputerName" = $IPAddress
-                }
-              }
+              $Params.ComputerName = $IPAddress
               
               # Start Setting Return Values as they are Found
               $VerifyObject.Status = "On-Line"
@@ -200,9 +203,17 @@ function Test-MyWorkstationSB()
                 {
                   # Set Found Properties
                   $VerifyObject.ComputerName = "$($MyCompData.Name)"
+                  if ($MyCompData.PartOfDomain)
+                  {
+                    $VerifyObject.FQDN = "$($MyCompData.Name)`.$($MyCompData.Domain)"
+                  }
+                  else
+                  {
+                    $VerifyObject.FQDN = "$($MyCompData.Name)"
+                  }
                   $VerifyObject.UserName = "$($MyCompData.UserName)"
                   $VerifyObject.Domain = "$($MyCompData.Domain)"
-                  $VerifyObject.DomainMember = "$($MyCompData.PartOfDomain)"
+                  $VerifyObject.DomainMember = $MyCompData.PartOfDomain
                   $VerifyObject.Manufacturer = "$($MyCompData.Manufacturer)"
                   $VerifyObject.Model = "$($MyCompData.Model)"
                   $VerifyObject.Memory = "$($MyCompData.TotalPhysicalMemory)"

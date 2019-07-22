@@ -38,6 +38,21 @@ function Test-MyWorkstation()
   Begin
   {
     Write-Verbose -Message "Enter Function Test-MyWorkstation"
+    
+    # Default Common Get-WmiObject Options
+    if ($PSBoundParameters.ContainsKey("Credential"))
+    {
+      $Params = @{
+        "ComputerName" = $Null;
+        "Credential" = $Credential
+      }
+    }
+    else
+    {
+      $Params = @{
+        "ComputerName" = $Null
+      }
+    }
   }
   Process
   {
@@ -52,6 +67,7 @@ function Test-MyWorkstation()
       #region ******** Custom Return Object $VerifyObject ********
       $VerifyObject = [PSCustomObject]@{
         "ComputerName" = $Computer.ToUpper();
+        "FQDN" = $Computer.ToUpper();
         "Found" = $False;
         "UserName" = "";
         "Domain" = "";
@@ -63,8 +79,11 @@ function Test-MyWorkstation()
         "SerialNumber" = "";
         "Memory" = "";
         "OperatingSystem" = "";
+        "BuildNumber" = "";
+        "Version" = "";
         "ServicePack" = "";
         "Architecture" = "";
+        "Is64Bit" = $False;
         "LocalDateTime" = "";
         "InstallDate" = "";
         "LastBootUpTime" = "";
@@ -85,20 +104,7 @@ function Test-MyWorkstation()
             # I think this is Faster than using Test-Connection
             if (((New-Object -TypeName System.Net.NetworkInformation.Ping).Send($IPAddress)).Status -eq [System.Net.NetworkInformation.IPStatus]::Success)
             {
-              # Default Common Get-WmiObject Options
-              if ($PSBoundParameters.ContainsKey("Credential"))
-              {
-                $Params = @{
-                  "ComputerName" = $IPAddress;
-                  "Credential" = $Credential
-                }
-              }
-              else
-              {
-                $Params = @{
-                  "ComputerName" = $IPAddress
-                }
-              }
+              $Params.ComputerName = $IPAddress
               
               # Start Setting Return Values as they are Found
               $VerifyObject.Status = "On-Line"
@@ -117,9 +123,17 @@ function Test-MyWorkstation()
                 
                 # Set Found Properties
                 $VerifyObject.ComputerName = "$($MyCompData.Name)"
+                if ($MyCompData.PartOfDomain)
+                {
+                  $VerifyObject.FQDN = "$($MyCompData.Name)`.$($MyCompData.Domain)"
+                }
+                else
+                {
+                  $VerifyObject.FQDN = "$($MyCompData.Name)"
+                }
                 $VerifyObject.UserName = "$($MyCompData.UserName)"
                 $VerifyObject.Domain = "$($MyCompData.Domain)"
-                $VerifyObject.DomainMember = "$($MyCompData.PartOfDomain)"
+                $VerifyObject.DomainMember = $MyCompData.PartOfDomain
                 $VerifyObject.Manufacturer = "$($MyCompData.Manufacturer)"
                 $VerifyObject.Model = "$($MyCompData.Model)"
                 $VerifyObject.Memory = "$($MyCompData.TotalPhysicalMemory)"
@@ -132,6 +146,7 @@ function Test-MyWorkstation()
                   
                   # Start Secondary Job, Pass IP Address and Credentials to Job Script to make Connection to Remote Computer
                   [Void]($MyJob = Get-WmiObject -AsJob @Params -Class Win32_OperatingSystem)
+
                   # Wait for Job to Finish or Wait Time has Elasped
                   [Void](Wait-Job -Job $MyJob -Timeout $Wait)
                   
@@ -145,63 +160,66 @@ function Test-MyWorkstation()
                     $VerifyObject.ProductType = $MyOSData.ProductType
                     $VerifyObject.OperatingSystem = "$($MyOSData.Caption)"
                     $VerifyObject.ServicePack = "$($MyOSData.CSDVersion)"
+                    $VerifyObject.BuildNumber = "$($MyOSData.BuildNumber)"
+                    $VerifyObject.Version = "$($MyOSData.Version)"
                     $VerifyObject.Architecture = $(if ([String]::IsNullOrEmpty($MyOSData.OSArchitecture)) { "32-bit" } else { "$($MyOSData.OSArchitecture)" })
+                    $VerifyObject.Is64Bit = ($VerifyObject.Architecture -eq "64-bit")
                     $VerifyObject.LocalDateTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($MyOSData.LocalDateTime)
                     $VerifyObject.InstallDate = [System.Management.ManagementDateTimeConverter]::ToDateTime($MyOSData.InstallDate)
                     $VerifyObject.LastBootUpTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($MyOSData.LastBootUpTime)
-                    
-                    # Optional SerialNumber Job
-                    if ($Serial)
-                    {
-                      # Start Optional Job, Pass IP Address and Credentials to Job Script to make Connection to Remote Computer
-                      [Void]($MyJob = Get-WmiObject -AsJob @Params -Class Win32_Bios)
-                      # Wait for Job to Finish or Wait Time has Elasped
-                      [Void](Wait-Job -Job $MyJob -Timeout $Wait)
-                      
-                      # Check if Job is Complete and has Data
-                      if ($MyJob.State -eq "Completed" -and $MyJob.HasMoreData)
-                      {
-                        # Get Job Data
-                        $MyBIOSData = Get-Job -ID $MyJob.ID | Receive-Job -AutoRemoveJob -Wait -Force
-                        
-                        # Set Found Property
-                        $VerifyObject.SerialNumber = "$($MyBIOSData.SerialNumber)"
-                      }
-                      else
-                      {
-                        $VerifyObject.Status = "Verify SerialNumber Error"
-                        [Void](Remove-Job -Job $MyJob -Force)
-                      }
-                    }
-                    
-                    # Optional Mobile / ChassisType Job
-                    if ($Mobile)
-                    {
-                      # Start Optional Job, Pass IP Address and Credentials to Job Script to make Connection to Remote Computer
-                      [Void]($MyJob = Get-WmiObject -AsJob @Params -Class Win32_SystemEnclosure)
-                      # Wait for Job to Finish or Wait Time has Elasped
-                      [Void](Wait-Job -Job $MyJob -Timeout $Wait)
-                      
-                      # Check if Job is Complete and has Data
-                      if ($MyJob.State -eq "Completed" -and $MyJob.HasMoreData)
-                      {
-                        # Get Job Data
-                        $MyChassisData = Get-Job -ID $MyJob.ID | Receive-Job -AutoRemoveJob -Wait -Force
-                        
-                        # Set Found Property
-                        $VerifyObject.IsMobile = $(@(8, 9, 10, 11, 12, 14, 18, 21, 30, 31, 32) -contains (($MyChassisData.ChassisTypes)[0]))
-                      }
-                      else
-                      {
-                        $VerifyObject.Status = "Verify is Mobile Error"
-                        [Void](Remove-Job -Job $MyJob -Force)
-                      }
-                    }
                   }
                   else
                   {
                     $VerifyObject.Status = "Verify Operating System Error"
                     [Void](Remove-Job -Job $MyJob -Force)
+                  }
+                  
+                  # Optional SerialNumber Job
+                  if ($Serial.IsPresent)
+                  {
+                    # Start Optional Job, Pass IP Address and Credentials to Job Script to make Connection to Remote Computer
+                    [Void]($MyBIOSJob = Get-WmiObject -AsJob @Params -Class Win32_Bios)
+                    # Wait for Job to Finish or Wait Time has Elasped
+                    [Void](Wait-Job -Job $MyBIOSJob -Timeout $Wait)
+                    
+                    # Check if Job is Complete and has Data
+                    if ($MyBIOSJob.State -eq "Completed" -and $MyBIOSJob.HasMoreData)
+                    {
+                      # Get Job Data
+                      $MyBIOSData = Get-Job -ID $MyBIOSJob.ID | Receive-Job -AutoRemoveJob -Wait -Force
+                      
+                      # Set Found Property
+                      $VerifyObject.SerialNumber = "$($MyBIOSData.SerialNumber)"
+                    }
+                    else
+                    {
+                      $VerifyObject.Status = "Verify SerialNumber Error"
+                      [Void](Remove-Job -Job $MyBIOSJob -Force)
+                    }
+                  }
+                  
+                  # Optional Mobile / ChassisType Job
+                  if ($Mobile.IsPresent)
+                  {
+                    # Start Optional Job, Pass IP Address and Credentials to Job Script to make Connection to Remote Computer
+                    [Void]($MyChassisJob = Get-WmiObject -AsJob @Params -Class Win32_SystemEnclosure)
+                    # Wait for Job to Finish or Wait Time has Elasped
+                    [Void](Wait-Job -Job $MyChassisJob -Timeout $Wait)
+                    
+                    # Check if Job is Complete and has Data
+                    if ($MyChassisJob.State -eq "Completed" -and $MyChassisJob.HasMoreData)
+                    {
+                      # Get Job Data
+                      $MyChassisData = Get-Job -ID $MyChassisJob.ID | Receive-Job -AutoRemoveJob -Wait -Force
+                      
+                      # Set Found Property
+                      $VerifyObject.IsMobile = $(@(8, 9, 10, 11, 12, 14, 18, 21, 30, 31, 32) -contains (($MyChassisData.ChassisTypes)[0]))
+                    }
+                    else
+                    {
+                      $VerifyObject.Status = "Verify is Mobile Error"
+                      [Void](Remove-Job -Job $MyChassisJob -Force)
+                    }
                   }
                 }
                 else
@@ -214,7 +232,7 @@ function Test-MyWorkstation()
                 $VerifyObject.Status = "Verify Workstation Error"
                 [Void](Remove-Job -Job $MyJob -Force)
               }
-              # Beak out of Loop, Verify was a Success no need to try other IP Address is any
+              # Beak out of Loop, Verify was a Success no need to try other IP Address if any
               Break
             }
           }
@@ -258,3 +276,4 @@ function Test-MyWorkstation()
   }
 }
 #endregion
+
